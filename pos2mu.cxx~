@@ -1,0 +1,318 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <cstdlib>
+#include "TFile.h"
+#include "TTree.h"
+#include "TMath.h"
+#import "xsmumu3.cxx"
+
+
+//This program reads a .dat positron file and
+//returns a .dat muon file and a .dat positron
+//file, for particles exiting from ONE SINGLE TARGET.
+//Multiple scattering and bremsstrahlung are applied 
+//to the positrons every 1/100 of target.
+
+void pos2mu(string nome_pos="ciao",int n_tgt=0,double l_tgt=0,string tgt="be"){
+
+  ifstream in;
+  ofstream outpos;
+  ofstream outmu;
+  string nome_mu = "mu_"+nome_pos;
+ 
+ 
+  //variables definition
+  
+  int debug = 0; //debug level
+  //cout<<"debug level: "<<debug<<endl;
+  int brSTATUS = 1; //status bremsstrahlung: 0=OFF 1=ON
+  
+  double m_e = 0.000510998; //GeV
+  double m_mu = 0.1056583745; //GeV
+  double alpha = 1./137.;
+  double pi = acos(-1.);
+  double n_av = 6.022e23;
+  double c = 1;
+  double e = 2.718218828;
+
+  //Double_t l_tgt; //target len in m
+  Double_t X0; //pdg[g cm^-2]
+  Double_t rho; //pdg[g cm^-3]???
+  double A; //pdg
+  double Z;
+  Double_t X0_tgt;
+
+  double berillio[] = {l_tgt,65.19,1.848,9.01218,4};
+  double idrogeno[] = {l_tgt,63.04,0.071,1.008,1};
+  double litio[] = {l_tgt,82.78,0.534,6.94,3};
+  double carbonio[] = {l_tgt,42.70,2.267,12.0107,6};
+  //string proprieta [] = {"l_tgt","X0","rho","A","Z"};
+  
+  if(tgt=="be"){
+    l_tgt = berillio[0]; //target len in m
+    X0 = berillio[1]; //pdg[g cm^-2]
+    rho = berillio[2]; //pdg[g cm^-3]???
+    A = berillio[3]; //pdg
+    Z = berillio[4];
+    X0_tgt = X0/rho; 
+    if(debug>1)cout<<endl;
+    if(debug>1)cout<<"Be target"<<endl;
+    if(debug>1)cout<<"l_tgt: "<<l_tgt<<" [m] ("<<l_tgt/(X0_tgt/100)*100<<"% di X0_tgt)"<<endl;
+    if(debug>1)cout<<"X0_tgt: "<<X0_tgt/100<<" [m]"<<endl;
+    if(debug>1)cout<<endl;
+  }
+  if(tgt=="h2"){
+    l_tgt = idrogeno[0]; //target len in m
+    X0 = idrogeno[1]; //pdg[g cm^-2]
+    rho = idrogeno[2]; //pdg[g cm^-3]???
+    A = idrogeno[3]; //pdg
+    Z = idrogeno[4];
+    X0_tgt = X0/rho; //n lungh rad del bers.
+    if(debug>1)cout<<endl;
+    if(debug>1)cout<<"H2 target"<<endl;
+    if(debug>1)cout<<"l_tgt: "<<l_tgt<<" [m] ("<<l_tgt/(X0_tgt/100)*100<<"% di X0_tgt)"<<endl;
+    if(debug>1)cout<<"X0_tgt: "<<X0_tgt/100<<" [m]"<<endl;
+    if(debug>1)cout<<endl;
+  }
+  if(tgt=="li"){
+    l_tgt = litio[0]; //target len in m
+    X0 = litio[1]; //pdg[g cm^-2]
+    rho = litio[2]; //pdg[g cm^-3]???
+    A = litio[3]; //pdg
+    Z = litio[4];
+    X0_tgt = X0/rho; //n lungh rad del bers.
+    if(debug>1)cout<<endl;
+    if(debug>1)cout<<"Li target"<<endl;
+    if(debug>1)cout<<"l_tgt: "<<l_tgt<<" [m] ("<<l_tgt/(X0_tgt/100)*100<<"% di X0_tgt)"<<endl;
+    if(debug>1)cout<<"X0_tgt: "<<X0_tgt/100<<" [m]"<<endl;
+    if(debug>1)cout<<endl;
+  }
+  if(tgt=="c"){
+    l_tgt = carbonio[0]; //target len in m
+    X0 = carbonio[1]; //pdg[g cm^-2]
+    rho = carbonio[2]; //pdg[g cm^-3]???
+    A = carbonio[3]; //pdg
+    Z = carbonio[4];
+    X0_tgt = X0/rho; //n lungh rad del bers.
+    if(debug>1)cout<<endl;
+    if(debug>1)cout<<"C target"<<endl;
+    if(debug>1)cout<<"l_tgt: "<<l_tgt<<" [m] ("<<l_tgt/(X0_tgt/100)*100<<"% di X0_tgt)"<<endl;
+    if(debug>1)cout<<"X0_tgt: "<<X0_tgt/100<<" [m]"<<endl;
+    if(debug>1)cout<<endl;
+  }
+
+   double z; //zvertex
+   double S; // = 2*m_e*E
+   double Eth = 2*pow(m_mu,2)/m_e-m_e;
+   double xs;
+   double theta_max;
+   double x_0;
+   double th_deg;
+   double th, thcm;
+   double phi;
+   double x_mu1;
+   double deltaEcorr;
+   int zprod;
+   double pmu_tot,pe_tot;
+   double br,E_br,sigma,hit,step;
+   double kmin_kmax = 1e-4;
+   double sigma_theta,rnd1,rnd2;
+   TLorentzVector Lpmu,Lpe;
+   TVector3 boost,beta;
+   
+   double n_mu;
+   double n_bunch = 3e11;
+   double n_muXS = n_bunch*1e-30*rho*n_av/A*Z*l_tgt*100;
+   double w;
+
+   int partID_mu, turn_mu, turn0;
+   double x_mu, px_mu, y_mu, py_mu, ct_mu, dE_E_mu, s_mu, E_mu;
+   
+   //functions definition
+   
+   TF1 *lrad = new TF1("lrad","e^(-x/[0])",0,l_tgt);
+   lrad->SetParameter(0,X0_tgt);
+   TF1 *xsmumu = new TF1("xsmumu",xsmumu3,40,80);  //import
+   TF1 *angdist = new TF1("angdist","(1+[0]+cos(x)*cos(x)*(1-[0]))*sin(x)",0,pi); // from geant4 physics
+   angdist->SetParameter(0,0);//to be set later particle by particle
+   TF1 *brem = new TF1("brem","4/3*[0]/x",0.00001,47.); //dsigma/dk
+   brem->SetParameter(0,rho/X0*l_tgt*100);
+
+
+
+   //////////////////////////////////////////////////////////
+   ////////////   BEGINNING OF CODE  ////////////////////////
+   //////////////////////////////////////////////////////////
+
+
+   if(debug>1)cout<<"temporary positron TTree generation"<<endl;
+   //contains only positrons that must go through
+   //the target number 'n_tgt' (starting from 0)
+   
+   TTree pos("pos","info sui positroni");
+   int partID,turn;
+   double x, px, y, py, ct, dE_E, s, E;
+   pos.Branch("partID",&partID); //ID particella
+   pos.Branch("turn",&turn); // -1 = didnt pass through any tgt
+   pos.Branch("x",&x); // m
+   pos.Branch("px",&px); // px/p0
+   pos.Branch("y",&y);
+   pos.Branch("py",&py);
+   pos.Branch("ct",&ct); // 
+   pos.Branch("dE_E",&dE_E); //
+   pos.Branch("s",&s);
+   pos.Branch("E",&E); // GeV
+
+   in.open(nome_pos);
+   while (1) {
+     in >>partID>>turn>>x>>px>>y>>py>>ct>>dE_E>>s>>E;
+     if(turn==n_tgt-1)pos.Fill();
+     //if(!in.good()) break;
+     if(partID==2750&&turn==n_tgt-1) break; //BRUTTOOOOOOOO
+   }
+   in.close();
+   
+   int nentries = pos.GetEntries();
+   cout<<"Entering target number "<<n_tgt<<endl;
+   cout<<"Positrons number: "<<nentries<<endl;
+   cout<<endl;
+
+   int n_step=100;
+   step=l_tgt/n_step;
+   brem->SetParameter(0,rho/X0*step*100);
+   sigma = rho/X0*step*100*4/3*log(1/kmin_kmax)*1.3; 
+
+   if(debug>1)cout<<"Start cycling through the positrons"<<endl;
+   if(debug>1)cout<<"Number of steps: "<<n_step<<" ("<<step*1000<<" mm)"<<endl;
+   outpos.open(nome_pos,ios::app);
+   outmu.open(nome_mu,ios::app);
+   E_mu=E/2;
+   for(int i=0;i<nentries;i++){
+     pos.GetEntry(i);
+     if(turn==n_tgt-1){     
+       //zprod=rand()%n_step; 
+       zprod = 100/l_tgt*lrad->GetRandom(); //deciding where to create the muon
+       E_br=E*(1+dE_E);
+       for(int i=1;i<=n_step;i++){//step 1% of l_tgt
+
+	 //////////////////    MsBrems   ///////////////////
+
+	 //Bremsstrahlung
+	 if(dE_E<=-1+0.00001){//saveswitch
+	   cout<<partID<<" "<<turn<<" "<<dE_E<<" DEAD"<<endl;
+	   break;
+	 }
+	 //cout<<dE_E<<" ";	   
+	 br = 0;
+	 hit = gRandom->Uniform(0,1);
+	 if(brSTATUS==0)hit=1;
+	 if(hit<sigma){
+	   br = brem->GetRandom(kmin_kmax*E_br,E_br);
+	 }
+	 E_br = E_br-br;
+	 dE_E = (E_br-E)/E;
+	 
+	 
+	 //multiple scattering
+	 
+	 sigma_theta=0.0136/E*sqrt(step*100/X0_tgt)*0.9;
+	 
+	 rnd1=gRandom->Gaus(0,1);
+	 rnd2=gRandom->Gaus(0,1);
+	 x = x + sigma_theta*step*(rnd1/sqrt(12)+rnd2/2);
+	 px = px + sigma_theta*rnd2;
+       
+	 rnd1=gRandom->Gaus(0,1);
+	 rnd2=gRandom->Gaus(0,1);
+	 y = y + sigma_theta*step*(rnd1/sqrt(12)+rnd2/2);
+	 py = py + sigma_theta*rnd2;
+
+	 //////////////////////////////////////////////
+         //------------------------------------------//
+	 /////////////////  Production  ///////////////
+	 if(i==zprod){
+	   z=step*i;//volendo posso estrarre uno step piu fino qui dentro
+	   xs = xsmumu->Eval(E_br);
+	   S = 2*m_e*(E_br);
+
+	 if(sqrt(S)/2>=m_mu){;
+	   angdist->SetParameter(0,Eth/E_br);//geantCorr
+	   th = angdist->GetRandom();  //in the cm frame
+	   thcm=th;
+	   phi = gRandom->Uniform(-pi,pi);
+	   n_mu = n_muXS*xs; //
+	   w = n_mu/nentries;
+	   //deltaEcorr = sqrt(S)/(2*m_e)*sqrt(S/4-pow(m_mu,2));
+	   //dE_E_mu = (E_br/2-E_mu)/E_mu + gRandom->Uniform(-deltaEcorr,deltaEcorr)/E_mu;
+
+	   Lpe.SetPx(0);//
+	   Lpe.SetPy(0);
+	   Lpe.SetPz(sqrt(pow(E_br,2)-pow(m_e,2)));
+	   //pe_tot = sqrt(pow(E_br,2)-pow(m_e,2));
+	   //Lpe.SetPx(pe_tot*px);
+	   //Lpe.SetPy(pe_tot*py);
+	   //Lpe.SetPz(sqrt(pow(pe_tot,2)-pow(Lpe.Px(),2)-pow(Lpe.Py(),2)));
+	   Lpe.SetE(E_br+m_e);
+	   boost = Lpe.BoostVector();
+
+	   pmu_tot = sqrt(S/4-pow(m_mu,2));
+	   Lpmu.SetPx(pmu_tot*sin(th)*cos(phi));
+	   Lpmu.SetPy(pmu_tot*sin(th)*sin(phi));
+	   Lpmu.SetPz(pmu_tot*cos(th));
+	   Lpmu.SetE(sqrt(S)/2);
+	   Lpmu.Boost(boost);
+	   th=Lpmu.Theta();    //theta del mu wrt the positron
+	   dE_E_mu=(Lpmu.E()-E_mu)/E_mu;/////
+	   
+	   x_mu = x+(l_tgt-z)*tan(Lpmu.Theta())*cos(Lpmu.Phi());//
+	   px_mu = px+sin(Lpmu.Theta())*cos(Lpmu.Phi())/cos(px);
+	   //px_mu = Lpmu.Px();
+	   y_mu = y+(l_tgt-z)*tan(Lpmu.Theta())*sin(Lpmu.Phi());//
+	   py_mu = py+sin(Lpmu.Theta())*sin(Lpmu.Phi())/cos(py);
+	   //py_mu = Lpmu.Py();
+	   
+	   ct_mu=ct;
+	   s_mu=0;
+	   
+	   partID_mu = partID;
+	   turn_mu = turn+1;
+	   turn0 = turn_mu;//the target where the muon is born
+	                   //it will remain unchanged
+	   
+	   outmu<<partID_mu<<" "<<turn_mu<<" "<<x_mu<<" "<<px_mu<<" "<<y_mu<<" "<<py_mu<<" "<<ct_mu<<" "<<dE_E_mu<<" "<<s_mu<<" "<<E_mu<<" "<<w<<" "<<z<<" "<<turn0<<endl;
+	   
+	   //turn=turn+1;
+	   //outpos<<partID<<" "<<turn<<" "<<x<<" "<<px<<" "<<y<<" "<<py<<" "<<ct<<" "<<dE_E<<" "<<s<<" "<<E<<endl;
+	   //break;
+	 }//end if(sqrt(S)/2>m_mu)
+	 }//end if(i==zprod)
+	 
+	 if(/*sqrt(S)/2<m_mu&&*/i==n_step){
+	   //cout<<partID<<" "<<turn+1<<endl;
+	   turn=turn+1;
+	   outpos<<partID<<" "<<turn<<" "<<x<<" "<<px<<" "<<y<<" "<<py<<" "<<ct<<" "<<dE_E<<" "<<s<<" "<<E<<endl;
+	 }//end if(sqrt(S)/2<m_mu&&i=n_step)
+	 
+	   //////////////////////////////////////////////
+	    
+       }//end for step 1% of l_tgt
+     }//end if(turn==n_tgt-1)
+   }//end loop entries (particles)
+
+
+   outmu.close();
+   outpos.close();
+
+
+
+
+  
+
+
+
+}//FINE
+
+

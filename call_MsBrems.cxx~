@@ -1,0 +1,97 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include "TFile.h"
+#include "TTree.h"
+#include "TMath.h"
+
+
+//Questa funzione calcola il multiplo scattering
+//e la bremsstrahlung per una particella.
+//in input vuole la lunghezza del bersaglio in metri
+//
+//NOTA: modificare il materiale se non è Be
+
+void MsBrems(double len=0){
+ 
+  //definizione variabili
+  bool brSTATUS = 1; //0=OFF ; 1=ON
+  int debug = 0;
+
+  double E = 45;
+  double kmin_kmax = 1e-4;
+  string tgt = "be"; //be, h2, li
+  
+  double m_e = 0.000510998; //GeV
+  double pi = acos(-1.);
+  double n_av = 6.022e23;
+
+  Double_t l_tgt; //target len in m
+  Double_t X0; //pdg[g cm^-2]
+  Double_t rho; //pdg[g cm^-3]???
+  double A; //pdg
+  double Z;
+  Double_t X0_tgt; //n lungh rad del bers.
+
+  double br,E_br,sigma,hit;
+  double sigma_theta,rnd1,rnd2;
+  double x,px,y,py;
+
+  double berillio[] = {len,65.19,1.848,9.01218,4};
+  
+  //string proprieta [] = {"l_tgt","X0","rho","A","Z"}; 
+  if(tgt=="be"){
+    if(debug>1)cout<<endl;
+    if(debug>1)cout<<"Bersaglio di Be"<<endl;
+    l_tgt = berillio[0]; //target len in m
+    X0 = berillio[1]; //pdg[g cm^-2]
+    rho = berillio[2]; //pdg[g cm^-3]???
+    A = berillio[3]; //pdg
+    Z = berillio[4];
+    X0_tgt = X0/rho; //n lungh rad del bers.
+
+    if(debug>1)cout<<"l_tgt: "<<l_tgt*100<<" [cm]"<<endl;
+    if(debug>1)cout<<"X0: "<<X0_tgt<<" [cm]"<<endl;
+    if(debug>1)cout<<endl;
+  }
+   
+   //definizione funzioni
+
+   TF1 *angdist = new TF1("angdist","1+cos(x)*cos(x)",0,pi);
+   TF1 *brem = new TF1("brem","4/3*[0]/x",0.00001,45.); //dsigma/dk
+   brem->SetParameter(0,rho/X0*l_tgt*100);
+
+   ///////////// BREMSSTRAHLUNG & MULTIPLE SCATTERING ////////////   
+  
+     //bremsstrahlung
+     br = 0;
+     sigma = rho/X0*l_tgt*100*4/3*log(1/kmin_kmax)*1.3;  //sez tot brem kmin=0.1%kmax; 1.3 tuning
+     hit = gRandom->Uniform(0,1);
+     if(brSTATUS==0)hit=1;
+     if(hit<sigma){
+       br = brem->GetRandom(kmin_kmax*E,E);
+       hBR->Fill(br);
+     }
+     E_br = E-br;
+
+     //multiplo scattering
+
+     sigma_theta=0.0136/E*sqrt(l_tgt*100/X0_tgt)*0.9;
+     
+     rnd1=gRandom->Gaus(0,1);
+     rnd2=gRandom->Gaus(0,1);
+     x = sigma_theta*l_tgt*(rnd1/sqrt(12)+rnd2/2);
+     px = sigma_theta*rnd2;
+       
+     rnd1=gRandom->Gaus(0,1);
+     rnd2=gRandom->Gaus(0,1);
+     y = sigma_theta*l_tgt*(rnd1/sqrt(12)+rnd2/2);
+     py = sigma_theta*rnd2;
+     
+     //return E_br x px y py ???
+
+}//FINE
+
+

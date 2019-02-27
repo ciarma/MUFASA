@@ -1,0 +1,96 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include "TFile.h"
+#include "TTree.h"
+#include "TMath.h"
+
+
+//Questo programma legge un .dat di muoni
+//e produce i grafici di debug.
+//
+//Il file di input deve essere inserito così
+//root -l -x "analisi_mu_NEW.cxx(\"pos_Be00mm50.dat\")"
+
+void analisi_mu_NEW(string nomefile="ciao"){
+
+  int partID,turn;
+  double x, px, y, py, ct, dE_E, s, E, w, z, turn0;
+
+  //lettura file e fill istogrammi
+
+  ifstream in;
+  cout<<"Apertura del file "<<nomefile<<endl;
+
+  double mu_tot=0;
+  TTree mu("mu","info sui muoni");
+  mu.Branch("partID",&partID); //ID particella
+  mu.Branch("turn",&turn); // -1 = non ha girato
+  mu.Branch("x",&x); // m
+  mu.Branch("px",&px); // px/p0
+  mu.Branch("y",&y);
+  mu.Branch("py",&py);
+  mu.Branch("ct",&ct); // -ct? m
+  mu.Branch("dE_E",&dE_E); //
+  mu.Branch("s",&s);
+  mu.Branch("E",&E); // GeV
+  mu.Branch("w",&w);
+  mu.Branch("z",&z); // m
+  mu.Branch("turn0",&turn0);//turn di nascita, rimane invariato
+  
+  in.open(nomefile);
+  while (1) {
+    if(!in.good()) break;
+    in >>partID>>turn>>x>>px>>y>>py>>ct>>dE_E>>s>>E>>w>>z>>turn0;
+    mu.Fill();     
+  }
+  in.close();
+
+  cout<<"sum w = "<<mu_tot<<endl;
+
+  //draw degli istogrammi
+  /*
+   TCanvas *Cxx = new TCanvas("x [m]");
+   hxx->Draw();
+   TCanvas *Cpx = new TCanvas("Px [rad]");
+   hpx->Draw();
+   TCanvas *Cyy = new TCanvas("y [m]");
+   hyy->Draw();
+   TCanvas *Cpy = new TCanvas("Py [rad]");
+   hpy->Draw();
+   TCanvas *Cct = new TCanvas("ct");
+   hct->Draw();*/
+   TCanvas *CdE = new TCanvas("dE_E [GeV]");
+   mu.Draw("px>>h1(1000,-1e-3,1e-3)","turn==0","");
+   /*TCanvas *CEE = new TCanvas("E [GeV]");
+   hEE->Draw();
+   TCanvas *Cww = new TCanvas("weight");
+   hww->Draw();
+   TCanvas *Czz = new TCanvas("z [m]");
+   hzz->Draw();
+   TCanvas *Ct0 = new TCanvas("turn0");
+   ht0->Draw();
+   TCanvas *Cpxx = new TCanvas("px:x");
+   hpxx->GetXaxis()->SetTitle("p_x [rad]");
+   hpxx->GetYaxis()->SetTitle("x [m]");
+   hpxx->Draw();
+   TCanvas *Cpyy = new TCanvas("py:y");
+   hpyy->GetXaxis()->SetTitle("p_y [rad]");
+   hpyy->GetYaxis()->SetTitle("y [m]");
+   hpyy->Draw();
+   TCanvas *CpxdE = new TCanvas("px:E");
+   hpxdE->Draw("col");
+   TCanvas *Ctot = new TCanvas();
+   Ctot->Divide(2,2);
+   Ctot->cd(1);
+   hEE->Draw();
+   Ctot->cd(2);
+   hpxdE->Draw();
+   Ctot->cd(3);
+   hpxx->Draw();
+   Ctot->cd(4);
+   hpyy->Draw();
+   */
+}//FINE

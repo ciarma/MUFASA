@@ -1,0 +1,98 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include "TFile.h"
+#include "TTree.h"
+#include "TMath.h"
+
+
+//Questo programma legge un .dat di positroni o muoni
+//e produce i grafici di debug.
+//
+//Il file di input deve essere inserito così
+//root -l -x "analisi.cxx(\"pos_Be00mm50.dat\")"
+
+void analisi(string nomefile="ciao"){
+
+  int partID,turn;
+  double x, px, y, py, ct, dE_E, s, E;
+
+  //definizione istogrammi
+
+  TH1D *hxx = new TH1D("hxx","x",1000,-1e-3,1e-3);
+  TH1D *hpx = new TH1D("hpx","px",1000,-0.001,0.001);
+  TH1D *hyy = new TH1D("hyy","y",1000,-1e-4,1e-4);
+  TH1D *hpy = new TH1D("hpy","py",1000,-0.001,0.001);
+  TH1D *hct = new TH1D("hct","ct",4000,-0.015,0.015);
+  TH1D *hdE = new TH1D("hdE","dE/E",1000,-0.5,0.05);
+  TH1D *hEE = new TH1D("hEE","Energia",1000,0,47);
+  TH1D *hAL = new TH1D("hAL","Alive e+",3000,0,2999);
+
+  TH2D *hpxx = new TH2D("hpxx","px:x",1000,-0.0015,0.0015,1000,-0.001,0.001);
+  TH2D *hpyy = new TH2D("hpyy","py:y",1000,-0.0015,0.0015,1000,-0.001,0.001);
+  TH2D *hpxdE = new TH2D("hpxdE","px:dE_E",1000,-0.0015,0.0015,1000,-0.25,0.25);
+
+  //lettura file e fill istogrammi
+
+  ifstream in;
+  in.open(nomefile);
+  cout<<"Apertura del file "<<nomefile<<endl;
+
+  while (1) {
+    in >>partID>>turn>>x>>px>>y>>py>>ct>>dE_E>>s>>E;
+    hxx->Fill(x);
+    hpx->Fill(px);
+    hyy->Fill(y);
+    hpy->Fill(py);
+    hct->Fill(ct);
+    hdE->Fill(dE_E);
+    hEE->Fill(E*(1+dE_E));
+    hAL->Fill(partID);
+    if(turn==-1)hpxx->Fill(px,x);
+    hpyy->Fill(py,y);
+    hpxdE->Fill(px,dE_E);
+    if(!in.good()) break;
+  }
+  in.close();
+
+  //draw degli istogrammi
+
+  /*
+   TCanvas *Cxx = new TCanvas("x [m]");
+   hxx->Draw();
+   TCanvas *Cpx = new TCanvas("Px [rad]");
+   hpx->Draw();
+   TCanvas *Cyy = new TCanvas("y [m]");
+   hyy->Draw();
+   TCanvas *Cpy = new TCanvas("Py [rad]");
+   hpy->Draw();
+   TCanvas *Cct = new TCanvas("ct");
+   hct->Draw();*/
+   TCanvas *CdE = new TCanvas("dE_E [GeV]");
+   hdE->Draw();
+   TCanvas *CEE = new TCanvas("E [GeV]");
+   hEE->Draw();
+   TCanvas *Cpxx = new TCanvas("px:x");
+   hpxx->GetXaxis()->SetTitle("p_x [rad]");
+   hpxx->GetYaxis()->SetTitle("x [m]");
+   hpxx->Draw();
+   TCanvas *Cpyy = new TCanvas("py:y");
+   hpyy->GetXaxis()->SetTitle("p_y [rad]");
+   hpyy->GetYaxis()->SetTitle("y [m]");
+   hpyy->Draw();
+   TCanvas *CpxdE = new TCanvas("px:E");
+   hpxdE->Draw("col");
+   TCanvas *Ctot = new TCanvas();
+   Ctot->Divide(2,2);
+   Ctot->cd(1);
+   hEE->Draw();
+   Ctot->cd(2);
+   hpxdE->Draw();
+   Ctot->cd(3);
+   hpxx->Draw();
+   Ctot->cd(4);
+   hpyy->Draw();
+   
+}//FINE

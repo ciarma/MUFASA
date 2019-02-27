@@ -1,0 +1,81 @@
+#!/bin/bash
+echo " "
+
+N_TGT=10       #[num di tgt da simulare]
+L_TGT=0.035     #[m] spessore tgt
+L_CELL=5        #[m] fodocell
+MATERIALE="be"  #materiale tgt
+NOME_POS0="2750_45GeV.dat" #nome del file contenente i positroni
+echo "    Numero di tgt:   "$N_TGT"     (da 0 a "`expr $N_TGT - 1`")"
+echo "    Lunghezza tgt:   "$L_TGT
+echo "    Materiale tgt:   "$MATERIALE
+echo "    Lunghezza cella: "$L_CELL
+echo "    File positroni:  "$NOME_POS0
+
+echo " "
+echo "NOW..."
+echo "Checking soft. requirements :"
+echo "  Checking for root ..."
+hash root 2>/dev/null || { echo >&2 "OOOps... I require root but it's not installed.  Aborting."; exit 1; }
+echo "    ... root found"
+echo "  Checking for awk ..."
+hash awk 2>/dev/null || { echo >&2 "OOOps... I require awk but it's not installed.  Aborting."; exit 1; }
+echo "    ... akw found"
+echo "  Checking for madx ..."
+hash madx 2>/dev/null || { echo >&2 "OOOps... I require madx but it's not installed.  Aborting."; exit 1; }
+echo "    ... madx found"
+echo " "
+
+
+NOME_POS="pos_"$MATERIALE$N_TGT"tgt_"$L_TGT"m_"$NOME_POS0
+rm $NOME_POS
+echo "    Rimosso file "$NOME_POS" se presente"
+cp "$NOME_POS0" "$NOME_POS"
+echo "    File "$NOME_POS" creato con successo."
+echo " "
+
+NOME_MU="mu_"$NOME_POS
+rm $NOME_MU
+echo "    Rimosso file "$NOME_MU" se presente"
+echo " "
+
+echo "    Eseguo pos2mu.cxx"
+n_tgt=0  #targhetta su cui sto lavorando ORA 0<=n_tgt<N_TGT
+while [ "$n_tgt" -le "`expr $N_TGT - 1`" ]
+do
+    root -l -x -q "pos2mu.cxx(\"$NOME_POS\",$n_tgt,$L_TGT,\"$MATERIALE\")"
+    echo "    trasporto positroni con MADX da implementare"#######
+    n_tgt=$(($n_tgt + 1))
+done
+echo " "
+echo "    pos2mu.cxx correttamente eseguito"
+echo "    file "$NOME_POS " aggiornato"
+echo "    file "$NOME_MU "creato"
+echo " "
+
+echo "    Eseguo MSmuon.cxx"
+n_tgt=0  #targhetta su cui sto lavorando ORA 0<=n_tgt<N_TGT
+while [ "$n_tgt" -le "`expr $N_TGT - 1`" ]
+do
+    root -l -x -q "MSmuon.cxx(\"$NOME_MU\",$n_tgt,$L_TGT,\"$MATERIALE\")"
+    echo "    trasporto muoni con MADX da implementare"#######
+    n_tgt=$(($n_tgt + 1))
+done
+echo " "
+echo "    MSmuon.cxx correttamente eseguito"
+echo "    file "$NOME_MU " aggiornato"
+echo " "
+
+echo "    Eseguo DECAYmuon.cxx"
+root -l -x -q "DECAYmuon.cxx(\"$NOME_MU\",$N_TGT,$L_TGT,$L_CELL)"
+NOME_MU_OUT="out_"$NOME_MU
+echo "    file "$NOME_MU_OUT" creato"
+echo " "
+
+echo "    Sposto i file di output nella cartella OUTPUT"
+mv $NOME_POS ./OUTPUT/$NOME_POS
+mv $NOME_MU ./OUTPUT/$NOME_MU
+mv $NOME_MU_OUT ./OUTPUT/$NOME_MU_OUT
+echo "    Fine, grazie e arrivederci"
+
+

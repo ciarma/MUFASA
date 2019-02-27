@@ -1,0 +1,81 @@
+
+=============================================
+=  MUon FAst Simulation Algorithm - MUFASA  =
+=============================================
+v1.0 - MUFASA was born (gRandom FIXED)
+v1.1 - implemented MADX
+
+This program simulates the muon production via e+e- annihilation, 
+using a positron beam and a target of given material.
+
+The only input file required is a .dat file containing the 
+positrons information particle by particle, formatted in the 
+following way:
+
+partID turn x px y py ct pt s E
+
+where:
+
+partID           - is just a sequential integer number to identify the positron
+turn             - must be -1 in input, it represent the last tgt the positron has 
+                   gone through (starting from 0, -1 means coming from the source)
+x px y py        - coming from MADX-PTC, respectively in [m] and [rad]
+ct               - coming from MADX-PTC, in [m] (unused)
+pt               - coming from MADX-PTC, natural number, referred in the code as dE_E
+s                - = 0 (unused, probably will be removed)
+E                - NOMINAL energy of the particle beam [GeV] (for the true energy E_true = E*(1+dE_E)
+
+MUFASA must be launched with the MUFASA.sh shell script, 
+in which must be specified the name of the positron input file,
+and then one can choose freely:
+
+- number of targets, 
+- lenght of the target,
+- material of the target, 
+- lenght of the transport line (MADX transport will be implemented ASAP).
+
+Once decided the setup, MUFASA will call the following ROOT macros:
+
+pos2mu.cxx       - for a single target, applies bremsstrahlung and multiple scattering to the
+		   positrons and generates the muons. Every positrons produces a muon that will
+		   carry information of the crossection with a weight (w). Positrons are kept
+		   alive until they reach 0.00001 of the nominal energy, beyond that they are
+		   considered DEAD and not transported anymore
+
+MSmuon.cxx       - for a single target, applies multiple scattering to the muons that must go
+		   through that target.
+
+DECAYmuons.cxx   - after the muons have been transported through ALL the targets, this program
+		   will evaluate the survival probability of the muons considering the relativistic
+		   gamma and the distance from where they were produced.
+
+The output files for the positrons, the muons before and after the DECAYmuon.cxx
+are placed in the /OUTPUT folder, and their name will be depending of the setup
+chosen; for example, for 10 0.3m berillium target, from the input positron file '50gev.dat'
+will result in:
+
+pos_be10tgt_0.3m_50gev.dat		for the positrons
+mu_pos_be10tgt_0.3m_50gev.dat		for the muons before the decay
+out_mu_pos_be10tgt_0.3m_50gev.dat	for the muons after the decay
+
+Those can be analized using
+
+analisi.cxx   		for the positrons
+analisi_mu_before.cxx 	for the muons (only before the decay)  //those two will
+analisi_mu_after.cxx 	for the muons (only after the decay)   //be merged soon
+
+
+For any doubt or question please contact me. I translated most of the code
+in english but i preferred not to change the variables names if in italian
+in order not to risk to lose anything. The three root macros also have a debug
+level you can vary to print on screen various informations, if set to 0 it only 
+prints the essential.
+
+X0materials.cxx is just a standalone root macro that will calculate the
+radiation lenght for materials, is not used for the whole routine but
+it can be useful from time to time.
+
+
+
+
+
